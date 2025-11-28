@@ -1,0 +1,50 @@
+{
+  "name": "komodo-mcp",
+  "version": "1.0.0",
+  "description": "MCP (Model Context Protocol) server for Komodo - Docker/container management",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "komodo-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "komodo",
+    "docker",
+    "container",
+    "devops",
+    "infrastructure",
+    "claude"
+  ],
+  "author": "komodo-mcp@estrem.eu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicolasestrem/komodo-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nicolasestrem/komodo-mcp/issues"
+  },
+  "homepage": "https://github.com/nicolasestrem/komodo-mcp#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "express": "^4.21.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
