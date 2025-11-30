@@ -87,3 +87,43 @@ test("non-OK responses include parsed error context", async (t) => {
     /Komodo API read \(ListServers\) returned 400: invalid request/
   );
 });
+
+test("execute operations do not retry on failure", async (t) => {
+  t.after(restoreFetch);
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: "failed" }), { status: 500 });
+  };
+
+  const client = new KomodoClient({
+    address: "http://example.com",
+    apiKey: "key",
+    apiSecret: "secret",
+  });
+
+  await assert.rejects(client.deployStack("demo"));
+  assert.equal(calls, 1, "Should not retry execute operations");
+});
+
+test("maxRetries configuration is respected", async (t) => {
+  t.after(restoreFetch);
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ error: "server error" }), { status: 500 });
+  };
+
+  const client = new KomodoClient({
+    address: "http://example.com",
+    apiKey: "key",
+    apiSecret: "secret",
+    maxRetries: 3,
+  });
+
+  // Speed up tests by removing retry delay
+  client.delayForAttempt = async () => {};
+
+  await assert.rejects(client.listServers());
+  assert.equal(calls, 3, "Should attempt configured number of retries");
+});

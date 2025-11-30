@@ -62,10 +62,11 @@ export class KomodoClient {
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
       const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(new DOMException("Request timed out", "AbortError")),
-        this.timeoutMs
-      );
+      const timeoutId = setTimeout(() => {
+        if (!controller.signal.aborted) {
+          controller.abort(new DOMException("Request timed out", "AbortError"));
+        }
+      }, this.timeoutMs);
 
       try {
         const response = await fetch(url, {
@@ -83,6 +84,7 @@ export class KomodoClient {
         if (!response.ok) {
           const error = await this.normalizeResponseError(response, endpoint, body.type);
           if (this.shouldRetry(endpoint, response.status) && attempt < attempts) {
+            await this.delayForAttempt(attempt);
             continue;
           }
           throw error;
@@ -99,6 +101,7 @@ export class KomodoClient {
         }
 
         if (this.isTransientError(error) && endpoint === "read" && attempt < attempts) {
+          await this.delayForAttempt(attempt);
           continue;
         }
 
@@ -106,6 +109,7 @@ export class KomodoClient {
       }
     }
 
+    // This should be unreachable because each loop iteration returns or throws
     throw new Error(`Komodo API ${endpoint} (${body.type}) failed after ${attempts} attempts`);
   }
 
@@ -129,31 +133,25 @@ export class KomodoClient {
     endpoint: "read" | "write" | "execute",
     type: string
   ): Promise<Error> {
-    let parsedBody: unknown;
-    try {
-      parsedBody = await response.clone().json();
-    } catch {
-      // fall back to text parsing below
-    }
-
+    const text = await response.text();
     let messageDetail: string | undefined;
-    if (parsedBody && typeof parsedBody === "object") {
-      const maybeMessage = (parsedBody as { message?: unknown; error?: unknown }).message ??
-        (parsedBody as { message?: unknown; error?: unknown }).error;
-      if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
-        messageDetail = maybeMessage;
-      } else {
-        messageDetail = JSON.stringify(parsedBody);
+
+    try {
+      const parsedBody = JSON.parse(text);
+      if (parsedBody && typeof parsedBody === "object") {
+        const maybeMessage = (parsedBody as { message?: unknown; error?: unknown }).message ??
+          (parsedBody as { message?: unknown; error?: unknown }).error;
+        if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
+          messageDetail = maybeMessage;
+        } else {
+          messageDetail = JSON.stringify(parsedBody);
+        }
       }
+    } catch {
+      // response was not JSON; fall through to raw text
     }
 
-    if (!messageDetail) {
-      try {
-        messageDetail = await response.text();
-      } catch {
-        messageDetail = "Unknown error";
-      }
-    }
+    messageDetail = messageDetail || text || "Unknown error";
 
     return new Error(
       `Komodo API ${endpoint} (${type}) returned ${response.status}: ${messageDetail}`
@@ -170,6 +168,11 @@ export class KomodoClient {
     }
 
     return new Error(`Komodo API ${endpoint} (${type}) request failed: ${String(error)}`);
+  }
+
+  private async delayForAttempt(attempt: number): Promise<void> {
+    const delayMs = 100 * Math.pow(2, attempt - 1);
+    return new Promise((resolve) => setTimeout(resolve, delayMs));
   }
 
   // ============ READ OPERATIONS ============
