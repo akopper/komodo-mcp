@@ -5,132 +5,155 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KomodoClient } from "../komodo-client.js";
+import { formatResult } from "./utils.js";
 
 export function registerWriteTools(server: McpServer, client: KomodoClient): void {
   // Create stack
-  server.tool(
+  server.registerTool(
     "komodo_create_stack",
-    "Create a new stack in Komodo",
     {
-      name: z.string().describe("Name for the new stack"),
-      server_id: z.string().describe("Server ID to deploy the stack on"),
-      compose_contents: z.string().optional().describe("Docker Compose file contents (YAML)"),
+      title: "Create stack",
+      description: "Create a new stack in Komodo",
+      inputSchema: z.object({
+        name: z.string().describe("Name for the new stack"),
+        server_id: z.string().describe("Server ID to deploy the stack on"),
+        compose_contents: z
+          .string()
+          .optional()
+          .describe("Docker Compose file contents (YAML)"),
+      }),
+      outputSchema: z.unknown().describe("Stack creation result"),
     },
     async ({ name, server_id, compose_contents }) => {
       const result = await client.createStack(name, server_id, compose_contents);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Created stack ${name}.`);
     }
   );
 
   // Update stack
-  server.tool(
+  server.registerTool(
     "komodo_update_stack",
-    "Update stack configuration",
     {
-      id: z.string().describe("Stack ID to update"),
-      config: z.record(z.unknown()).describe("Configuration object to update"),
+      title: "Update stack",
+      description: "Update stack configuration",
+      inputSchema: z.object({
+        id: z.string().describe("Stack ID to update"),
+        config: z.record(z.unknown()).describe("Configuration object to update"),
+      }),
+      outputSchema: z.unknown().describe("Stack update result"),
     },
     async ({ id, config }) => {
       const result = await client.updateStack(id, config);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Updated stack ${id}.`);
     }
   );
 
   // Delete stack
-  server.tool(
+  server.registerTool(
     "komodo_delete_stack",
-    "Delete a stack from Komodo. WARNING: This permanently removes the stack configuration!",
     {
-      id: z.string().describe("Stack ID to delete"),
+      title: "Delete stack",
+      description:
+        "Delete a stack from Komodo. WARNING: This permanently removes the stack configuration!",
+      inputSchema: z.object({
+        id: z.string().describe("Stack ID to delete"),
+      }),
+      outputSchema: z.unknown().describe("Stack deletion result"),
+      annotations: { destructiveHint: true },
     },
     async ({ id }) => {
       const result = await client.deleteStack(id);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Deleted stack ${id}.`);
     }
   );
 
   // Write stack file contents
-  server.tool(
+  server.registerTool(
     "komodo_write_stack_contents",
-    "Write or update the Docker Compose file contents for a stack",
     {
-      stack: z.string().describe("Stack name or ID"),
-      contents: z.string().describe("Docker Compose file contents (YAML)"),
+      title: "Write stack contents",
+      description: "Write or update the Docker Compose file contents for a stack",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID"),
+        contents: z.string().describe("Docker Compose file contents (YAML)"),
+      }),
+      outputSchema: z.unknown().describe("Result of writing stack file contents"),
     },
     async ({ stack, contents }) => {
       const result = await client.writeStackFileContents(stack, contents);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Updated stack contents for ${stack}.`);
     }
   );
 
   // Create server
-  server.tool(
+  server.registerTool(
     "komodo_create_server",
-    "Add a new server to Komodo",
     {
-      name: z.string().describe("Name for the new server"),
-      address: z.string().describe("Periphery address (e.g., https://periphery:8120)"),
+      title: "Create server",
+      description: "Add a new server to Komodo",
+      inputSchema: z.object({
+        name: z.string().describe("Name for the new server"),
+        address: z.string().describe("Periphery address (e.g., https://periphery:8120)"),
+      }),
+      outputSchema: z.unknown().describe("Server creation result"),
     },
     async ({ name, address }) => {
       const result = await client.createServer(name, address);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Created server ${name}.`);
     }
   );
 
   // Update server
-  server.tool(
+  server.registerTool(
     "komodo_update_server",
-    "Update server configuration",
     {
-      id: z.string().describe("Server ID to update"),
-      config: z.record(z.unknown()).describe("Configuration object to update"),
+      title: "Update server",
+      description: "Update server configuration",
+      inputSchema: z.object({
+        id: z.string().describe("Server ID to update"),
+        config: z.record(z.unknown()).describe("Configuration object to update"),
+      }),
+      outputSchema: z.unknown().describe("Server update result"),
     },
     async ({ id, config }) => {
       const result = await client.updateServer(id, config);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Updated server ${id}.`);
     }
   );
 
   // Delete server
-  server.tool(
+  server.registerTool(
     "komodo_delete_server",
-    "Remove a server from Komodo. WARNING: This removes the server connection!",
     {
-      id: z.string().describe("Server ID to delete"),
+      title: "Delete server",
+      description: "Remove a server from Komodo. WARNING: This removes the server connection!",
+      inputSchema: z.object({
+        id: z.string().describe("Server ID to delete"),
+      }),
+      outputSchema: z.unknown().describe("Server deletion result"),
+      annotations: { destructiveHint: true },
     },
     async ({ id }) => {
       const result = await client.deleteServer(id);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Deleted server ${id}.`);
     }
   );
 
   // Rename stack
-  server.tool(
+  server.registerTool(
     "komodo_rename_stack",
-    "Rename a stack",
     {
-      id: z.string().describe("Stack ID to rename"),
-      name: z.string().describe("New name for the stack"),
+      title: "Rename stack",
+      description: "Rename a stack",
+      inputSchema: z.object({
+        id: z.string().describe("Stack ID to rename"),
+        name: z.string().describe("New name for the stack"),
+      }),
+      outputSchema: z.unknown().describe("Stack rename result"),
     },
     async ({ id, name }) => {
       const result = await client.renameStack(id, name);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Renamed stack ${id} to ${name}.`);
     }
   );
 }

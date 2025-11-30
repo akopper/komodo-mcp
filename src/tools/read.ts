@@ -5,225 +5,267 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KomodoClient } from "../komodo-client.js";
+import { formatResult } from "./utils.js";
 
 export function registerReadTools(server: McpServer, client: KomodoClient): void {
   // List all servers
-  server.tool(
+  server.registerTool(
     "komodo_list_servers",
-    "List all Komodo servers with their status and configuration",
-    {},
+    {
+      title: "List Komodo servers",
+      description: "List all Komodo servers with their status and configuration",
+      inputSchema: z.object({}),
+      outputSchema: z
+        .unknown()
+        .describe("Servers with status and configuration as returned by Komodo"),
+    },
     async () => {
       const result = await client.listServers();
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, "Retrieved Komodo servers.");
     }
   );
 
   // List all stacks
-  server.tool(
+  server.registerTool(
     "komodo_list_stacks",
-    "List all Komodo stacks with their current state (running/down)",
-    {},
+    {
+      title: "List Komodo stacks",
+      description: "List all Komodo stacks with their current state (running/down)",
+      inputSchema: z.object({}),
+      outputSchema: z
+        .unknown()
+        .describe("Stacks and their runtime state as reported by Komodo"),
+    },
     async () => {
       const result = await client.listStacks();
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, "Retrieved stacks.");
     }
   );
 
   // List all deployments
-  server.tool(
+  server.registerTool(
     "komodo_list_deployments",
-    "List all Komodo deployments",
-    {},
+    {
+      title: "List deployments",
+      description: "List all Komodo deployments",
+      inputSchema: z.object({}),
+      outputSchema: z
+        .unknown()
+        .describe("Deployment metadata as returned by Komodo"),
+    },
     async () => {
       const result = await client.listDeployments();
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, "Retrieved deployments.");
     }
   );
 
   // Get stack details
-  server.tool(
+  server.registerTool(
     "komodo_get_stack",
-    "Get detailed information about a specific stack",
     {
-      stack: z.string().describe("Stack name or ID"),
+      title: "Get stack details",
+      description: "Get detailed information about a specific stack",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Detailed stack information"),
     },
     async ({ stack }) => {
       const result = await client.getStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved stack ${stack}.`);
     }
   );
 
   // Get stack logs
-  server.tool(
+  server.registerTool(
     "komodo_get_stack_log",
-    "Get deployment logs for a stack",
     {
-      stack: z.string().describe("Stack name or ID"),
+      title: "Get stack log",
+      description: "Get deployment logs for a stack",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Log output for the requested stack"),
     },
     async ({ stack }) => {
       const result = await client.getStackLog(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved logs for stack ${stack}.`);
     }
   );
 
   // Get container logs
-  server.tool(
+  server.registerTool(
     "komodo_get_container_log",
-    "Get logs from a specific container",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID"),
-      tail: z.number().optional().describe("Number of lines to return (default: 100)"),
+      title: "Get container log",
+      description: "Get logs from a specific container",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID"),
+        tail: z
+          .number()
+          .optional()
+          .describe("Number of lines to return (default: 100)"),
+      }),
+      outputSchema: z.unknown().describe("Log output for the requested container"),
     },
     async ({ server, container, tail }) => {
       const result = await client.getContainerLog(server, container, tail);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved logs for container ${container}.`);
     }
   );
 
   // List containers on a server
-  server.tool(
+  server.registerTool(
     "komodo_list_containers",
-    "List all Docker containers on a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "List containers",
+      description: "List all Docker containers on a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Container listings for the target server"),
     },
     async ({ server }) => {
       const result = await client.listDockerContainers(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved containers for server ${server}.`);
     }
   );
 
   // Inspect container
-  server.tool(
+  server.registerTool(
     "komodo_inspect_container",
-    "Get detailed information about a container",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID"),
+      title: "Inspect container",
+      description: "Get detailed information about a container",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Detailed inspection data for the container"),
     },
     async ({ server, container }) => {
       const result = await client.inspectDockerContainer(server, container);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Inspected container ${container}.`);
     }
   );
 
   // Get system stats
-  server.tool(
+  server.registerTool(
     "komodo_get_system_stats",
-    "Get system statistics for a server (CPU, memory, disk)",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "Get system stats",
+      description: "Get system statistics for a server (CPU, memory, disk)",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("CPU, memory, disk, and other system stats"),
     },
     async ({ server }) => {
       const result = await client.getSystemStats(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved system stats for server ${server}.`);
     }
   );
 
   // List Docker images
-  server.tool(
+  server.registerTool(
     "komodo_list_images",
-    "List all Docker images on a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "List Docker images",
+      description: "List all Docker images on a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker images available on the server"),
     },
     async ({ server }) => {
       const result = await client.listDockerImages(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved Docker images for server ${server}.`);
     }
   );
 
   // List Docker networks
-  server.tool(
+  server.registerTool(
     "komodo_list_networks",
-    "List all Docker networks on a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "List Docker networks",
+      description: "List all Docker networks on a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker networks configured on the server"),
     },
     async ({ server }) => {
       const result = await client.listDockerNetworks(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved Docker networks for server ${server}.`);
     }
   );
 
   // List Docker volumes
-  server.tool(
+  server.registerTool(
     "komodo_list_volumes",
-    "List all Docker volumes on a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "List Docker volumes",
+      description: "List all Docker volumes on a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker volumes available on the server"),
     },
     async ({ server }) => {
       const result = await client.listDockerVolumes(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Retrieved Docker volumes for server ${server}.`);
     }
   );
 
   // Get alerts
-  server.tool(
+  server.registerTool(
     "komodo_get_alerts",
-    "List all system alerts",
-    {},
+    {
+      title: "Get system alerts",
+      description: "List all system alerts",
+      inputSchema: z.object({}),
+      outputSchema: z.unknown().describe("Alerts currently reported by Komodo"),
+    },
     async () => {
       const result = await client.listAlerts();
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, "Retrieved Komodo alerts.");
     }
   );
 
   // Search container logs
-  server.tool(
+  server.registerTool(
     "komodo_search_logs",
-    "Search container logs for specific terms",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID"),
-      terms: z.array(z.string()).describe("Search terms to find in logs"),
+      title: "Search container logs",
+      description: "Search container logs for specific terms",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID"),
+        terms: z.array(z.string()).describe("Search terms to find in logs"),
+      }),
+      outputSchema: z.unknown().describe("Matching log entries for the provided search terms"),
     },
     async ({ server, container, terms }) => {
       const result = await client.searchContainerLog(server, container, terms);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Searched logs for container ${container}.`);
     }
   );
 
   // Get stacks summary
-  server.tool(
+  server.registerTool(
     "komodo_get_stack_services",
-    "Get summary of all stacks with their services and status",
-    {},
+    {
+      title: "Get stack services",
+      description: "Get summary of all stacks with their services and status",
+      inputSchema: z.object({}),
+      outputSchema: z
+        .unknown()
+        .describe("Stacks and associated services with status information"),
+    },
     async () => {
       const result = await client.getStacksSummary();
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, "Retrieved stack services summary.");
     }
   );
 }

@@ -5,188 +5,219 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KomodoClient } from "../komodo-client.js";
+import { formatResult } from "./utils.js";
 
 export function registerExecuteTools(server: McpServer, client: KomodoClient): void {
   // Deploy stack
-  server.tool(
+  server.registerTool(
     "komodo_deploy_stack",
-    "Deploy or redeploy a stack (pulls images and starts containers)",
     {
-      stack: z.string().describe("Stack name or ID to deploy"),
+      title: "Deploy stack",
+      description: "Deploy or redeploy a stack (pulls images and starts containers)",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID to deploy"),
+      }),
+      outputSchema: z.unknown().describe("Deployment result from Komodo"),
     },
     async ({ stack }) => {
       const result = await client.deployStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Deployed stack ${stack}.`);
     }
   );
 
   // Start stack
-  server.tool(
+  server.registerTool(
     "komodo_start_stack",
-    "Start a stopped stack",
     {
-      stack: z.string().describe("Stack name or ID to start"),
+      title: "Start stack",
+      description: "Start a stopped stack",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID to start"),
+      }),
+      outputSchema: z.unknown().describe("Start stack result"),
     },
     async ({ stack }) => {
       const result = await client.startStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Started stack ${stack}.`);
     }
   );
 
   // Stop stack
-  server.tool(
+  server.registerTool(
     "komodo_stop_stack",
-    "Stop a running stack (keeps containers, just stops them)",
     {
-      stack: z.string().describe("Stack name or ID to stop"),
+      title: "Stop stack",
+      description: "Stop a running stack (keeps containers, just stops them)",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID to stop"),
+      }),
+      outputSchema: z.unknown().describe("Stop stack result"),
     },
     async ({ stack }) => {
       const result = await client.stopStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Stopped stack ${stack}.`);
     }
   );
 
   // Restart stack
-  server.tool(
+  server.registerTool(
     "komodo_restart_stack",
-    "Restart a stack (stop then start)",
     {
-      stack: z.string().describe("Stack name or ID to restart"),
+      title: "Restart stack",
+      description: "Restart a stack (stop then start)",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID to restart"),
+      }),
+      outputSchema: z.unknown().describe("Restart stack result"),
     },
     async ({ stack }) => {
       const result = await client.restartStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Restarted stack ${stack}.`);
     }
   );
 
   // Destroy stack
-  server.tool(
+  server.registerTool(
     "komodo_destroy_stack",
-    "Destroy a stack (stops and removes containers). WARNING: This is destructive!",
     {
-      stack: z.string().describe("Stack name or ID to destroy"),
+      title: "Destroy stack",
+      description:
+        "Destroy a stack (stops and removes containers). WARNING: This is destructive!",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID to destroy"),
+      }),
+      outputSchema: z.unknown().describe("Destroy stack result"),
+      annotations: { destructiveHint: true },
     },
     async ({ stack }) => {
       const result = await client.destroyStack(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Destroyed stack ${stack}.`);
     }
   );
 
   // Pull stack images
-  server.tool(
+  server.registerTool(
     "komodo_pull_stack",
-    "Pull latest images for a stack without deploying",
     {
-      stack: z.string().describe("Stack name or ID"),
+      title: "Pull stack images",
+      description: "Pull latest images for a stack without deploying",
+      inputSchema: z.object({
+        stack: z.string().describe("Stack name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Image pull result"),
     },
     async ({ stack }) => {
       const result = await client.pullStackImages(stack);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Pulled images for stack ${stack}.`);
     }
   );
 
   // Start container
-  server.tool(
+  server.registerTool(
     "komodo_start_container",
-    "Start a specific container",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID to start"),
+      title: "Start container",
+      description: "Start a specific container",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID to start"),
+      }),
+      outputSchema: z.unknown().describe("Container start result"),
     },
     async ({ server, container }) => {
       const result = await client.startContainer(server, container);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Started container ${container}.`);
     }
   );
 
   // Stop container
-  server.tool(
+  server.registerTool(
     "komodo_stop_container",
-    "Stop a specific container",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID to stop"),
+      title: "Stop container",
+      description: "Stop a specific container",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID to stop"),
+      }),
+      outputSchema: z.unknown().describe("Container stop result"),
     },
     async ({ server, container }) => {
       const result = await client.stopContainer(server, container);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Stopped container ${container}.`);
     }
   );
 
   // Restart container
-  server.tool(
+  server.registerTool(
     "komodo_restart_container",
-    "Restart a specific container",
     {
-      server: z.string().describe("Server name or ID"),
-      container: z.string().describe("Container name or ID to restart"),
+      title: "Restart container",
+      description: "Restart a specific container",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+        container: z.string().describe("Container name or ID to restart"),
+      }),
+      outputSchema: z.unknown().describe("Container restart result"),
     },
     async ({ server, container }) => {
       const result = await client.restartContainer(server, container);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Restarted container ${container}.`);
     }
   );
 
   // Prune images
-  server.tool(
+  server.registerTool(
     "komodo_prune_images",
-    "Remove unused Docker images from a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "Prune Docker images",
+      description: "Remove unused Docker images from a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker image prune result"),
+      annotations: { destructiveHint: true },
     },
     async ({ server }) => {
       const result = await client.pruneDockerImages(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Pruned Docker images on server ${server}.`);
     }
   );
 
   // Prune networks
-  server.tool(
+  server.registerTool(
     "komodo_prune_networks",
-    "Remove unused Docker networks from a server",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "Prune Docker networks",
+      description: "Remove unused Docker networks from a server",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker network prune result"),
+      annotations: { destructiveHint: true },
     },
     async ({ server }) => {
       const result = await client.pruneDockerNetworks(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Pruned Docker networks on server ${server}.`);
     }
   );
 
   // Prune system
-  server.tool(
+  server.registerTool(
     "komodo_prune_system",
-    "Full Docker system prune (images, networks, volumes, build cache). WARNING: This is destructive!",
     {
-      server: z.string().describe("Server name or ID"),
+      title: "Prune Docker system",
+      description:
+        "Full Docker system prune (images, networks, volumes, build cache). WARNING: This is destructive!",
+      inputSchema: z.object({
+        server: z.string().describe("Server name or ID"),
+      }),
+      outputSchema: z.unknown().describe("Docker system prune result"),
+      annotations: { destructiveHint: true },
     },
     async ({ server }) => {
       const result = await client.pruneDockerSystem(server);
-      return {
-        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
-      };
+      return formatResult(result, `Pruned Docker system on server ${server}.`);
     }
   );
 }
