@@ -7,6 +7,14 @@ export interface KomodoConfig {
   address: string;
   apiKey: string;
   apiSecret: string;
+  /**
+   * Timeout in milliseconds for API requests. Defaults to 30 seconds.
+   */
+  timeoutMs?: number;
+  /**
+   * Maximum attempts for idempotent read operations. Defaults to 2.
+   */
+  maxRetries?: number;
 }
 
 export interface KomodoRequest {
@@ -16,9 +24,13 @@ export interface KomodoRequest {
 
 export class KomodoClient {
   private config: KomodoConfig;
+  private readonly timeoutMs: number;
+  private readonly maxRetries: number;
 
   constructor(config: KomodoConfig) {
     this.config = config;
+    this.timeoutMs = config.timeoutMs ?? 30_000;
+    this.maxRetries = Math.max(1, config.maxRetries ?? 2);
   }
 
   /**
@@ -46,23 +58,118 @@ export class KomodoClient {
     body: KomodoRequest
   ): Promise<T> {
     const url = `${this.config.address}/${endpoint}`;
+    const attempts = endpoint === "read" ? this.maxRetries : 1;
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Api-Key": this.config.apiKey,
-        "X-Api-Secret": this.config.apiSecret,
-      },
-      body: JSON.stringify(body),
-    });
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(
+        () => controller.abort(new DOMException("Request timed out", "AbortError")),
+        this.timeoutMs
+      );
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Komodo API error (${response.status}): ${errorText}`);
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Api-Key": this.config.apiKey,
+            "X-Api-Secret": this.config.apiSecret,
+          },
+          body: JSON.stringify(body),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          const error = await this.normalizeResponseError(response, endpoint, body.type);
+          if (this.shouldRetry(endpoint, response.status) && attempt < attempts) {
+            continue;
+          }
+          throw error;
+        }
+
+        return (await response.json()) as T;
+      } catch (error) {
+        clearTimeout(timeoutId);
+
+        if (this.isAbortError(error)) {
+          throw new Error(
+            `Komodo API ${endpoint} (${body.type}) timed out after ${this.timeoutMs}ms`
+          );
+        }
+
+        if (this.isTransientError(error) && endpoint === "read" && attempt < attempts) {
+          continue;
+        }
+
+        throw this.normalizeError(error, endpoint, body.type);
+      }
     }
 
-    return response.json() as Promise<T>;
+    throw new Error(`Komodo API ${endpoint} (${body.type}) failed after ${attempts} attempts`);
+  }
+
+  private shouldRetry(endpoint: "read" | "write" | "execute", status: number): boolean {
+    if (endpoint !== "read") return false;
+    return status >= 500 || status === 429;
+  }
+
+  private isAbortError(error: unknown): error is DOMException {
+    return error instanceof DOMException && error.name === "AbortError";
+  }
+
+  private isTransientError(error: unknown): boolean {
+    if (this.isAbortError(error)) return true;
+    if (error instanceof TypeError) return true;
+    return false;
+  }
+
+  private async normalizeResponseError(
+    response: Response,
+    endpoint: "read" | "write" | "execute",
+    type: string
+  ): Promise<Error> {
+    let parsedBody: unknown;
+    try {
+      parsedBody = await response.clone().json();
+    } catch {
+      // fall back to text parsing below
+    }
+
+    let messageDetail: string | undefined;
+    if (parsedBody && typeof parsedBody === "object") {
+      const maybeMessage = (parsedBody as { message?: unknown; error?: unknown }).message ??
+        (parsedBody as { message?: unknown; error?: unknown }).error;
+      if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
+        messageDetail = maybeMessage;
+      } else {
+        messageDetail = JSON.stringify(parsedBody);
+      }
+    }
+
+    if (!messageDetail) {
+      try {
+        messageDetail = await response.text();
+      } catch {
+        messageDetail = "Unknown error";
+      }
+    }
+
+    return new Error(
+      `Komodo API ${endpoint} (${type}) returned ${response.status}: ${messageDetail}`
+    );
+  }
+
+  private normalizeError(
+    error: unknown,
+    endpoint: "read" | "write" | "execute",
+    type: string
+  ): Error {
+    if (error instanceof Error) {
+      return new Error(`Komodo API ${endpoint} (${type}) request failed: ${error.message}`);
+    }
+
+    return new Error(`Komodo API ${endpoint} (${type}) request failed: ${String(error)}`);
   }
 
   // ============ READ OPERATIONS ============
